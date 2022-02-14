@@ -17,6 +17,9 @@ const ContractView: React.FC<Props> = ({contract}) => {
     return (
         <Grid columns={1} doubling>
             <Grid.Column>
+                Contract Owner: <Label>{contract.owner}</Label>
+            </Grid.Column>
+            <Grid.Column>
                 Contract Number: <Label>{contract.number}</Label>
             </Grid.Column>
             <Grid.Column>

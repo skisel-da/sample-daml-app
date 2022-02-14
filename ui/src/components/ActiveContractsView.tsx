@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React from 'react'
+import React, {ChangeEvent, useMemo} from 'react'
 import {Button, Form, Grid, List, Segment} from 'semantic-ui-react';
 import {Portfolio} from '@daml.js/create-daml-app';
 import ContractView from "./ContractView";
@@ -13,21 +13,37 @@ type Props = {
 }
 
 const ActiveContractsView: React.FC<Props> = ({contracts, onDepositMoney, onFullWithdrawal}) => {
-    const [depositAmount, setDeposit] = React.useState("0.0");
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const updateContractNumber = (value: string) => {
-        setDeposit(value)
+    const toFormObject = (contract: Portfolio.Contract) => {
+        return {
+            contract: contract,
+            depositAmount: "0.0"
+        };
     }
-    const depositMoney = (contract: Portfolio.Contract) => async (event?: React.FormEvent) => {
+
+    const contractObjects = useMemo(
+        () => contracts
+            .map(iky => toFormObject(iky))
+            .sort((x, y) => x.contract.number.localeCompare(y.contract.number))
+        ,
+        [contracts]
+    );
+
+    const [deposits, setDeposits] = React.useState(contractObjects);
+    React.useEffect(() => setDeposits(contractObjects), [contractObjects]);
+
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const depositMoney = (contract: Portfolio.Contract, index: number) => async (event?: React.FormEvent) => {
         if (event) {
             event.preventDefault();
         }
         setIsSubmitting(true);
-        await onDepositMoney(contract, depositAmount);
+        const list = [...deposits];
+        await onDepositMoney(contract, list[index].depositAmount);
         setIsSubmitting(false);
     }
 
-    const fullWithdrawal =  (contract: Portfolio.Contract) => async (event?: React.FormEvent) => {
+    const fullWithdrawal = (contract: Portfolio.Contract) => async (event?: React.FormEvent) => {
         if (event) {
             event.preventDefault();
         }
@@ -36,26 +52,33 @@ const ActiveContractsView: React.FC<Props> = ({contracts, onDepositMoney, onFull
         setIsSubmitting(false);
     }
 
+    const updateDeposit = (e: ChangeEvent<HTMLInputElement>, index: number) => {
+        const value = e.target.value;
+        const list = [...deposits];
+        list[index].depositAmount = value;
+        setDeposits(list);
+    }
+
     return (
         <List relaxed>
-            {[...contracts].sort((x, y) => x.number.localeCompare(y.number)).map((contract) =>
-                <List.Item key={contract.number}>
+            {[...deposits].map((deposit, index) =>
+                <List.Item key={deposit.contract.number}>
                     <List.Content>
                         <Segment>
                             <Grid centered columns={2}>
                                 <Grid.Column>
-                                    <ContractView contract={contract}/>
+                                    <ContractView contract={deposit.contract}/>
                                 </Grid.Column>
                                 <Grid.Column>
-                                    <Form onSubmit={depositMoney(contract)}>
+                                    <Form onSubmit={depositMoney(deposit.contract, index)}>
                                         <Form.Input
                                             fluid
                                             readOnly={isSubmitting}
                                             loading={isSubmitting}
                                             className='test-select-follow-input'
                                             placeholder="Add Balance"
-                                            value={depositAmount}
-                                            onChange={(event) => updateContractNumber(event.currentTarget.value)}
+                                            value={deposits[index].depositAmount}
+                                            onChange={(event) => updateDeposit(event, index)}
                                         />
                                         <Button
                                             type='submit'
@@ -63,7 +86,7 @@ const ActiveContractsView: React.FC<Props> = ({contracts, onDepositMoney, onFull
                                             Deposit
                                         </Button>
                                     </Form>
-                                    <Form onSubmit={fullWithdrawal(contract)}>
+                                    <Form onSubmit={fullWithdrawal(deposit.contract)}>
                                         <Button
                                             type='submit'
                                             className='test-select-follow-button'>

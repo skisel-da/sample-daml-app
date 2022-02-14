@@ -9,6 +9,7 @@ import IdentityCheckView from './IdentityCheckView';
 import IssueContractView from "./IssueContractView";
 import WithdrawalRequestsView from "./WithdrawalRequestsView";
 import Ledger from "@daml/ledger";
+import ActiveContractsFoundationView from "./ActiveContractsFoundationView";
 
 type Props = {
   ledger: Ledger;
@@ -22,6 +23,7 @@ const FoundationView: React.FC<Props> = (props) => {
   const kycCheckContracts = useStreamQueries(Portfolio.KycCheck).contracts;
   const ikyContracts = useStreamQueries(Portfolio.IKnowYou).contracts;
   const withdrawals = useStreamQueries(Portfolio.FullWithdrawalRequest).contracts;
+  const contracts = useStreamQueries(Portfolio.Contract).contracts;
   const ledger = props.ledger;
 
   // Sorted list of users that are following the current user
@@ -47,6 +49,13 @@ const FoundationView: React.FC<Props> = (props) => {
           .map(contract => contract.payload)
       ,
       [withdrawals, username]
+  );
+
+  const myContracts = useMemo(
+      () => contracts
+          .map(contract => contract.payload)
+      ,
+      [contracts, username]
   );
 
   const onApproveIdentity = async (iky: Portfolio.IKnowYou): Promise<boolean> => {
@@ -112,6 +121,12 @@ const FoundationView: React.FC<Props> = (props) => {
               {myUser ? `Withdrawal Requests` : 'Loading...'}
             </Header>
             <WithdrawalRequestsView withdrawals={myWithdrawals} onApproveWithdrawal={onApproveWithdrawal}/>
+          </Grid.Column>
+          <Grid.Column>
+            <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
+              {myUser ? `Active Portfolios` : 'Loading...'}
+            </Header>
+            <ActiveContractsFoundationView contracts={myContracts}/>
           </Grid.Column>
         </Grid.Row>
       </Grid>

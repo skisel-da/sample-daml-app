@@ -172,7 +172,7 @@ const CustomerView: React.FC<Props> = (props) => {
 
           { contracts.length > 0 ? <Grid.Column>
             <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
-              {myUser ? `Active Portfolio` : 'Loading...'}
+              {myUser ? `Active Portfolios` : 'Loading...'}
             </Header>
             <ActiveContractsView contracts={contracts} onDepositMoney={onDepositMoney} onFullWithdrawal={onFullWithdrawal}/>
           </Grid.Column> : undefined
