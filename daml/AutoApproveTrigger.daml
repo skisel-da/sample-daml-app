@@ -1,0 +1,42 @@
+module AutoApproveTrigger where
+
+import qualified Daml.Trigger as T
+import qualified Portfolio
+--import DA.Action (when)
+import DA.Foldable
+import DA.Set qualified as S
+
+autoApproveTrigger : T.Trigger ()
+autoApproveTrigger = T.Trigger
+  { initialize = pure ()
+  , updateState = \_ -> pure ()
+  , rule = \p -> do
+      iKnowYouIdentities <- T.query @Portfolio.IKnowYou
+      let identities = map snd iKnowYouIdentities
+      --debug $ "Verified identities so far: " <> show (identities)
+      contractsWithCustomers <- T.query @Portfolio.Contract
+      let contracts = map snd contractsWithCustomers
+      --debug $ "Contracts so far: " <> show (contracts)
+      contractOffers <- T.query @Portfolio.ContractOffer
+      let offersToCustomers = map snd contractOffers
+      --debug $ "Contract offers so far: " <> show (offersToCustomers)
+
+      let validatedOwners = S.fromList(map (\iky -> iky.owner) identities)
+      let ownersWithContracts = S.fromList(map (\contract -> contract.owner) contracts)
+      let ownersWithContractOffers = S.fromList(map (\contractOffer -> contractOffer.contract.owner) offersToCustomers)
+      let a = validatedOwners `S.difference` ownersWithContracts
+      let ownersToIssueContractsTo = a `S.difference` ownersWithContractOffers
+      debug $ "Owners, Foundation: " <> show (ownersToIssueContractsTo)
+      now <- getTime
+      forA_ (S.toList ownersToIssueContractsTo) \owner -> do
+          let contract = Portfolio.Contract with 
+                foundation = p
+                number = "G-" <> show now
+                owner = owner
+                deposits = []
+                balance = 0.0
+          T.dedupCreate Portfolio.ContractOffer with contract      
+      pure ()    
+  , registeredTemplates = T.AllInDar
+  , heartbeat = None
+  }
