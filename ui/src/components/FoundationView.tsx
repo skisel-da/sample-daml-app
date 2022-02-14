@@ -48,14 +48,14 @@ const FoundationView: React.FC<Props> = (props) => {
       () => withdrawals
           .map(contract => contract.payload)
       ,
-      [withdrawals, username]
+      [withdrawals]
   );
 
   const myContracts = useMemo(
       () => contracts
           .map(contract => contract.payload)
       ,
-      [contracts, username]
+      [contracts]
   );
 
   const onApproveIdentity = async (iky: Portfolio.IKnowYou): Promise<boolean> => {

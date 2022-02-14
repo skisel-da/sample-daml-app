@@ -1,8 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, {ChangeEvent, useMemo} from 'react'
-import {Button, Form, Grid, List, Segment} from 'semantic-ui-react';
+import React from 'react'
+import {Grid, List, Segment} from 'semantic-ui-react';
 import {Portfolio} from '@daml.js/create-daml-app';
 import ContractView from "./ContractView";
 

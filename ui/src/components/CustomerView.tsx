@@ -146,8 +146,7 @@ const CustomerView: React.FC<Props> = (props) => {
 
             <Segment>
               <Header as='h2'>
-                <Icon name='user' />
-                {isValidated() ? <Icon name='check' style={{color: '#008000'}} /> : undefined}
+                <Icon name='user' style={isValidated() ? {color: '#008000'} : {color: '#000000'}}/>
                 <Header.Content>
                   <Header.Subheader>
                     {
