@@ -1,0 +1,247 @@
+module Portfolio where
+
+import Daml.Script
+import DA.Date
+
+type ContractKey = (Party, Text)
+data Deposit = Deposit with
+  depositDate: Date
+  amount : Decimal
+    deriving (Eq, Show)
+
+template Customer with
+    username: Party
+  where
+    signatory username
+    key username: Party
+    maintainer key    
+
+template FoundationUser with
+    username: Party
+  where
+    signatory username
+    key username: Party
+    maintainer key    
+
+template IKnowYou with
+    owner : Party
+    provider: Party
+    name: Text
+    address: Text
+    dateOfBirth: Date
+  where
+    signatory [owner, provider]
+    observer provider
+    key owner : Party
+    maintainer key    
+    agreement
+      show owner <> " is checked by " <>
+      show provider <> " for KYC."
+
+template KycCheck with
+    check: IKnowYou
+  where 
+    signatory check.owner
+    observer check.provider
+    key check.owner : Party
+    maintainer key
+    choice IdentityChecked : ContractId IKnowYou
+      controller check.provider
+      do
+        foundationUserExist <- visibleByKey @FoundationUser check.provider
+        assertMsg "Does not seem to be you're the right user." (foundationUserExist)
+        create check
+
+template Contract with
+    foundation : Party
+    number : Text
+    owner : Party
+    deposits : [Deposit]
+    balance: Decimal
+  where
+    signatory [foundation, owner]
+
+    key (foundation, number) : ContractKey
+    maintainer key._1
+  
+    choice AddDeposit: ContractId Contract
+      with
+        depositAmount : Decimal
+      controller owner
+      do
+        userExist <- visibleByKey @Customer owner
+        assertMsg "Does not seem to be you're the right user." (userExist)
+
+        now <- getTime
+        let today = toDateUTC now
+        assertMsg "You cannot deposit zero or negative balance" (depositAmount > 0.0)
+
+        let deposit = Deposit with depositDate = today; amount = depositAmount
+
+        create this with
+          deposits = deposit :: deposits  
+          balance = balance + depositAmount
+    
+    nonconsuming choice WithdrawRequest: ContractId FullWithdrawalRequest
+      controller owner
+      do 
+        userExist <- visibleByKey @Customer owner
+        assertMsg "Does not seem to be you're the right user." (userExist)
+        assertMsg "You cannot withdraw contract which never was deposited." ((length deposits) > 0)
+        create FullWithdrawalRequest with contract = this
+
+
+template ContractOffer with
+    contract : Contract
+  where
+    signatory contract.foundation
+    observer contract.owner
+    key (contract.foundation, contract.number) : ContractKey
+    maintainer key._1
+    ensure 
+      (length contract.deposits) == 0 && (contract.balance == 0.0)
+
+    choice AcceptContract : ContractId Contract
+      controller contract.owner
+      do
+        userExist <- visibleByKey @Customer contract.owner
+        assertMsg "Does not seem to be you're the right user." (userExist)
+        isKycChecked <- visibleByKey @IKnowYou contract.owner
+        assertMsg "You cannot accept an offer before going through KYC check." (isKycChecked)
+        create contract with balance = 0.0
+
+
+template FullWithdrawalRequest with 
+    contract: Contract
+  where
+    signatory contract.owner
+    observer contract.foundation
+    key (contract.foundation, contract.number) : ContractKey
+    maintainer key._1
+    ensure 
+      (length contract.deposits) > 0 && (contract.balance > 0.0)
+
+    choice AcceptWithdrawal : ContractId Contract
+      controller contract.foundation
+      do
+        userExist <- visibleByKey @FoundationUser contract.foundation
+        assertMsg "Does not seem to be you're the right user." (userExist)
+        (fetchedContractId, fetchedContract) <- fetchByKey @Contract (contract.foundation, contract.number)
+        archive fetchedContractId
+        create fetchedContract with balance = 0.0; deposits = []
+    
+test_contract_creation_and_withdrawal : Script ()
+test_contract_creation_and_withdrawal = script do
+  foundation <- allocateParty "Post Finance"
+  alice <- allocateParty "Alice"
+  submit foundation do
+    createCmd FoundationUser with username = foundation
+  submit alice do
+    createCmd Customer with username = alice
+
+  let contract = Contract with 
+        foundation = foundation
+        number = "123"
+        owner = alice
+        deposits = []
+        balance = 0.0
+
+  let youKnowMe = IKnowYou with
+        owner = alice
+        provider = foundation
+        name = "Alice Cooper"
+        address = "3321 Eagle Drive, London, UK"
+        dateOfBirth = date 1986 May 01
+
+  kycCheckedRequestId <- submit alice do
+    createCmd KycCheck with check = youKnowMe
+
+  submit foundation do
+    exerciseCmd kycCheckedRequestId IdentityChecked
+
+  contractOfferId <- submit foundation do
+    createCmd ContractOffer with contract
+
+  contractId <- submit alice do
+    exerciseCmd contractOfferId AcceptContract
+  
+  pure()
+
+test_contract_offer_creation_fails_with_zero_balance = script do 
+  foundation <- allocateParty "Post Finance"
+  alice <- allocateParty "Alice"
+  submit foundation do
+    createCmd FoundationUser with username = foundation
+  submit alice do
+    createCmd Customer with username = alice  
+  let 
+    zeroDeposit = Deposit with depositDate = date 2022 Jan 01; amount = 0.0
+    negativeDeposit = Deposit with depositDate = date 2022 Jan 01; amount = -1.0
+    zeroContract = Contract with 
+        foundation = foundation
+        number = "123"
+        owner = alice
+        deposits = [zeroDeposit]
+        balance = 0.0
+    negativeContract =  Contract with 
+        foundation = foundation
+        number = "123"
+        owner = alice
+        deposits = [negativeDeposit]
+        balance = 0.0
+
+  submitMustFail foundation do
+    createCmd ContractOffer with contract = zeroContract
+
+  submitMustFail foundation do
+    createCmd ContractOffer with contract = negativeContract
+
+  pure()
+
+test_contract_add_deposit_and_withdraw : Script ()
+test_contract_add_deposit_and_withdraw = script do 
+  foundation <- allocateParty "Post Finance"
+  alice <- allocateParty "Alice"
+  submit foundation do
+    createCmd FoundationUser with username = foundation
+  submit alice do
+    createCmd Customer with username = alice
+  let youKnowMe = IKnowYou with
+        owner = alice
+        provider = foundation
+        name = "Alice Cooper"
+        address = "3321 Eagle Drive, London, UK"
+        dateOfBirth = date 1986 May 01
+
+  kycCheckedRequestId <- submit alice do
+    createCmd KycCheck with check = youKnowMe
+
+  submit foundation do
+    exerciseCmd kycCheckedRequestId IdentityChecked
+
+  let contract = Contract with 
+        foundation = foundation
+        number = "123"
+        owner = alice
+        deposits = []
+        balance = 0.0
+  
+  contractOfferId <- submit foundation do
+    createCmd ContractOffer with contract
+
+  contract2 <- submit alice do
+    exerciseCmd contractOfferId AcceptContract
+
+  submitMustFail alice do
+    exerciseCmd contract2 AddDeposit with depositAmount = 0.0
+
+  contract3 <- submit alice do
+    exerciseCmd contract2 AddDeposit with depositAmount = 100.0
+
+  fullWithdrawal1 <- submit alice do 
+    exerciseCmd contract3 WithdrawRequest
+
+  contract3 <- submit foundation do
+    exerciseCmd fullWithdrawal1 AcceptWithdrawal  
+
+  pure()
