@@ -17,7 +17,8 @@ const CreateIdentity: React.FC<Props> = ({onAddIdentity}) => {
   const username = useParty();
   const emptyIdentity = {
     owner: username,
-    provider: "foundation",
+    provider: "kyc",
+    foundation: "foundation",
     name: "",
     address: "",
     dateOfBirth: "1980-01-01"

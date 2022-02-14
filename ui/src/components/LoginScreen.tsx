@@ -22,6 +22,14 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
   const login = useCallback(async (credentials: Credentials) => {
     try {
       const ledger = new Ledger({token: credentials.token});
+      if (credentials.party === "kyc") {
+        let userContract = await ledger.fetchByKey(Portfolio.KYCProvider, credentials.party);
+        if (userContract === null) {
+          const user = {username: credentials.party, following: []};
+          userContract = await ledger.create(Portfolio.KYCProvider, user);
+        }
+        onLogin(credentials);
+      }
       if (credentials.party === "foundation") {
         let userContract = await ledger.fetchByKey(Portfolio.FoundationUser, credentials.party);
         if (userContract === null) {

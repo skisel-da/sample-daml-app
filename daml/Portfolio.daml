@@ -9,6 +9,13 @@ data Deposit = Deposit with
   amount : Decimal
     deriving (Eq, Show)
 
+template KYCProvider with
+    username: Party
+  where
+    signatory username
+    key username: Party
+    maintainer key   
+
 template Customer with
     username: Party
   where
@@ -26,12 +33,13 @@ template FoundationUser with
 template IKnowYou with
     owner : Party
     provider: Party
+    foundation: Party    
     name: Text
     address: Text
     dateOfBirth: Date
   where
     signatory [owner, provider]
-    observer provider
+    observer foundation
     key owner : Party
     maintainer key    
     agreement
@@ -42,14 +50,14 @@ template KycCheck with
     check: IKnowYou
   where 
     signatory check.owner
-    observer check.provider
+    observer [check.provider, check.foundation]
     key check.owner : Party
     maintainer key
     choice IdentityChecked : ContractId IKnowYou
       controller check.provider
       do
-        foundationUserExist <- visibleByKey @FoundationUser check.provider
-        assertMsg "Does not seem to be you're the right user." (foundationUserExist)
+        kycProviderUser <- visibleByKey @KYCProvider check.provider
+        assertMsg "Does not seem to be you're the right user." (kycProviderUser)
         create check
 
 template Contract with
@@ -133,7 +141,11 @@ template FullWithdrawalRequest with
 test_contract_creation_and_withdrawal : Script ()
 test_contract_creation_and_withdrawal = script do
   foundation <- allocateParty "Post Finance"
+  provider <-  allocateParty "KYC"
   alice <- allocateParty "Alice"
+
+  submit provider do
+    createCmd KYCProvider with username = provider
   submit foundation do
     createCmd FoundationUser with username = foundation
   submit alice do
@@ -148,7 +160,8 @@ test_contract_creation_and_withdrawal = script do
 
   let youKnowMe = IKnowYou with
         owner = alice
-        provider = foundation
+        provider = provider
+        foundation = foundation
         name = "Alice Cooper"
         address = "3321 Eagle Drive, London, UK"
         dateOfBirth = date 1986 May 01
@@ -156,7 +169,7 @@ test_contract_creation_and_withdrawal = script do
   kycCheckedRequestId <- submit alice do
     createCmd KycCheck with check = youKnowMe
 
-  submit foundation do
+  submit provider do
     exerciseCmd kycCheckedRequestId IdentityChecked
 
   contractOfferId <- submit foundation do
@@ -169,7 +182,10 @@ test_contract_creation_and_withdrawal = script do
 
 test_contract_offer_creation_fails_with_zero_balance = script do 
   foundation <- allocateParty "Post Finance"
+  provider <-  allocateParty "KYC"
   alice <- allocateParty "Alice"
+  submit provider do
+    createCmd KYCProvider with username = provider
   submit foundation do
     createCmd FoundationUser with username = foundation
   submit alice do
@@ -201,14 +217,18 @@ test_contract_offer_creation_fails_with_zero_balance = script do
 test_contract_add_deposit_and_withdraw : Script ()
 test_contract_add_deposit_and_withdraw = script do 
   foundation <- allocateParty "Post Finance"
+  provider <-  allocateParty "KYC"
   alice <- allocateParty "Alice"
   submit foundation do
     createCmd FoundationUser with username = foundation
   submit alice do
     createCmd Customer with username = alice
+  submit provider do
+    createCmd KYCProvider with username = provider
   let youKnowMe = IKnowYou with
         owner = alice
-        provider = foundation
+        provider = provider
+        foundation = foundation
         name = "Alice Cooper"
         address = "3321 Eagle Drive, London, UK"
         dateOfBirth = date 1986 May 01
@@ -216,7 +236,7 @@ test_contract_add_deposit_and_withdraw = script do
   kycCheckedRequestId <- submit alice do
     createCmd KycCheck with check = youKnowMe
 
-  submit foundation do
+  submit provider do
     exerciseCmd kycCheckedRequestId IdentityChecked
 
   let contract = Contract with 

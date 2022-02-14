@@ -6,6 +6,7 @@ import { Image, Menu } from 'semantic-ui-react'
 import CustomerView from './CustomerView';
 import {useLedger, useParty} from '@daml/react';
 import FoundationView from "./FoundationView";
+import KYCView from "./KYCView";
 
 type Props = {
   onLogout: () => void;
@@ -44,7 +45,13 @@ const MainScreen: React.FC<Props> = ({onLogout}) => {
         </Menu.Menu>
       </Menu>
 
-      {party === "foundation" ? <FoundationView ledger={ledger}/> : <CustomerView ledger={ledger}/>}
+      {
+        party === "foundation"
+            ? <FoundationView ledger={ledger}/>
+            : party === "kyc"
+            ? <KYCView ledger={ledger}/>
+            : <CustomerView ledger={ledger}/>
+      }
     </>
   );
 };

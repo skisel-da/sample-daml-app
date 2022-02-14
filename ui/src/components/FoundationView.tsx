@@ -20,28 +20,16 @@ const FoundationView: React.FC<Props> = (props) => {
   const username = useParty();
   const myUserResult = useStreamFetchByKeys(Portfolio.FoundationUser, () => [username], [username]);
   const myUser = myUserResult.contracts[0]?.payload;
-  const kycCheckContracts = useStreamQueries(Portfolio.KycCheck).contracts;
   const ikyContracts = useStreamQueries(Portfolio.IKnowYou).contracts;
   const withdrawals = useStreamQueries(Portfolio.FullWithdrawalRequest).contracts;
   const contracts = useStreamQueries(Portfolio.Contract).contracts;
   const ledger = props.ledger;
 
-  // Sorted list of users that are following the current user
-  const kycChecks = useMemo(
-      () => kycCheckContracts
-          .map(contract => contract.payload)
-          .filter(check => check.check.provider === username)
-          .map(check => check.check)
-      ,
-      [kycCheckContracts, username]
-  );
-
   const myCustomers = useMemo(
       () => ikyContracts
           .map(contract => contract.payload)
-          .filter(check => check.provider === username)
       ,
-      [ikyContracts, username]
+      [ikyContracts]
   );
 
   const myWithdrawals = useMemo(
@@ -57,16 +45,6 @@ const FoundationView: React.FC<Props> = (props) => {
       ,
       [contracts]
   );
-
-  const onApproveIdentity = async (iky: Portfolio.IKnowYou): Promise<boolean> => {
-    try {
-      await ledger.exerciseByKey(Portfolio.KycCheck.IdentityChecked, iky.owner, {});
-      return true;
-    } catch (error) {
-      alert(`Unknown error:\n${JSON.stringify(error)}`);
-      return false;
-    }
-  }
 
   const onProvideContract = async (iky: Portfolio.IKnowYou, contractId: string): Promise<boolean> => {
     try {
@@ -102,14 +80,8 @@ const FoundationView: React.FC<Props> = (props) => {
 
   return (
     <Container>
-      <Grid centered columns={2}>
+      <Grid centered columns={3}>
         <Grid.Row stretched>
-          <Grid.Column>
-            <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
-                {myUser ? `Approve Identities` : 'Loading...'}
-            </Header>
-            <IdentityCheckView ikys={kycChecks} onApproveIdentity={onApproveIdentity}/>
-          </Grid.Column>
           <Grid.Column>
             <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
               {myUser ? `Issue Contracts` : 'Loading...'}
@@ -118,15 +90,15 @@ const FoundationView: React.FC<Props> = (props) => {
           </Grid.Column>
           <Grid.Column>
             <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
-              {myUser ? `Withdrawal Requests` : 'Loading...'}
-            </Header>
-            <WithdrawalRequestsView withdrawals={myWithdrawals} onApproveWithdrawal={onApproveWithdrawal}/>
-          </Grid.Column>
-          <Grid.Column>
-            <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
               {myUser ? `Active Portfolios` : 'Loading...'}
             </Header>
             <ActiveContractsFoundationView contracts={myContracts}/>
+          </Grid.Column>
+          <Grid.Column>
+            <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
+              {myUser ? `Withdrawal Requests` : 'Loading...'}
+            </Header>
+            <WithdrawalRequestsView withdrawals={myWithdrawals} onApproveWithdrawal={onApproveWithdrawal}/>
           </Grid.Column>
         </Grid.Row>
       </Grid>
