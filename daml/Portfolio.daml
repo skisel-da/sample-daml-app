@@ -116,7 +116,7 @@ template FullWithdrawalRequest with
   where
     signatory contract.owner
     observer contract.foundation
-    key (contract.foundation, contract.number) : ContractKey
+    key (contract.owner, contract.number) : ContractKey
     maintainer key._1
     ensure 
       (length contract.deposits) > 0 && (contract.balance > 0.0)

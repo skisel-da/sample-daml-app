@@ -7,6 +7,7 @@ import { Portfolio } from '@daml.js/create-daml-app';
 import {useParty, useStreamFetchByKeys, useStreamQueries} from '@daml/react';
 import IdentityCheckView from './IdentityCheckView';
 import IssueContractView from "./IssueContractView";
+import WithdrawalRequestsView from "./WithdrawalRequestsView";
 import Ledger from "@daml/ledger";
 
 type Props = {
@@ -20,6 +21,7 @@ const FoundationView: React.FC<Props> = (props) => {
   const myUser = myUserResult.contracts[0]?.payload;
   const kycCheckContracts = useStreamQueries(Portfolio.KycCheck).contracts;
   const ikyContracts = useStreamQueries(Portfolio.IKnowYou).contracts;
+  const withdrawals = useStreamQueries(Portfolio.FullWithdrawalRequest).contracts;
   const ledger = props.ledger;
 
   // Sorted list of users that are following the current user
@@ -38,6 +40,13 @@ const FoundationView: React.FC<Props> = (props) => {
           .filter(check => check.provider === username)
       ,
       [ikyContracts, username]
+  );
+
+  const myWithdrawals = useMemo(
+      () => withdrawals
+          .map(contract => contract.payload)
+      ,
+      [withdrawals, username]
   );
 
   const onApproveIdentity = async (iky: Portfolio.IKnowYou): Promise<boolean> => {
@@ -67,6 +76,21 @@ const FoundationView: React.FC<Props> = (props) => {
     }
   }
 
+  const onApproveWithdrawal = async (r: Portfolio.FullWithdrawalRequest): Promise<boolean> => {
+    try {
+      let key = {
+        _1: r.contract.owner,
+        _2: r.contract.number
+      };
+      await ledger.exerciseByKey(Portfolio.FullWithdrawalRequest.AcceptWithdrawal, key, {});
+      return true;
+    } catch (error) {
+      alert(`Unknown error:\n${JSON.stringify(error)}`);
+      return false;
+    }
+  }
+
+
   return (
     <Container>
       <Grid centered columns={2}>
@@ -81,7 +105,13 @@ const FoundationView: React.FC<Props> = (props) => {
             <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
               {myUser ? `Issue Contracts` : 'Loading...'}
             </Header>
-            <IssueContractView ikys={myCustomers} onProvideContract={onProvideContract}/>
+            <IssueContractView ikysInput={myCustomers} onProvideContract={onProvideContract}/>
+          </Grid.Column>
+          <Grid.Column>
+            <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
+              {myUser ? `Withdrawal Requests` : 'Loading...'}
+            </Header>
+            <WithdrawalRequestsView withdrawals={myWithdrawals} onApproveWithdrawal={onApproveWithdrawal}/>
           </Grid.Column>
         </Grid.Row>
       </Grid>
